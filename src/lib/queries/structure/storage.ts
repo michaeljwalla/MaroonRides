@@ -23,8 +23,41 @@ export enum StorageKey {
   FAVORITE_LOCATIONS = 'favoriteLocations',
   SYSTEM_THEME = 'system-theme',
   APP_THEME = 'app-theme',
+  ROUTE_CACHE = "route-cache",
 }
 
+const ROUTE_CACHE_TTL = 60 * 60 * 48 * 1000 // 48h expiry
+interface RouteCache {
+  routes: Route[],
+  timestamp: number
+}
+
+export async function fetchCachedRoutes(): Promise<Route[] | null> {
+  let routes: Route[] | null = null;
+  try {
+    const data = await AsyncStorage.getItem(StorageKey.ROUTE_CACHE);
+    if (!data) return null;
+    const cache: RouteCache = JSON.parse(data)
+    if (ROUTE_CACHE_TTL < (Date.now() - cache.timestamp)) return null;
+    routes = cache.routes;
+  }
+  catch {
+    //TODO: flag some error here if substantial.
+  }
+  return routes;
+}
+export async function saveRoutesToCache(routes: Route[]): Promise<void> {
+  try {
+    const cache: RouteCache = { routes, timestamp: Date.now() };
+    await AsyncStorage.setItem(
+      StorageKey.ROUTE_CACHE,
+      JSON.stringify(cache)
+    );
+  } catch {
+    //TODO: flag some error here, if substantial.
+  }
+  return;
+}
 export const useFavorites = () => {
   const routesQuery = useRoutes();
 
@@ -165,3 +198,4 @@ export const defaultGroupMutation = () => {
 };
 
 export default useFavorites;
+
