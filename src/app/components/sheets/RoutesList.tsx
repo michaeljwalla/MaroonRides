@@ -7,7 +7,8 @@ import {
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { SegmentedControlEvent } from '@lib/utils/utils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
-import React, { memo, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -18,8 +19,10 @@ import {
 
 import { useRoutes } from '@lib/queries/app';
 import {
+  fetchCachedRoutes,
+  saveRoutesToCache,
   useDefaultRouteGroup,
-  useFavorites,
+  useFavorites
 } from '@lib/queries/structure/storage';
 import useAppStore from '@lib/state/app_state';
 import { useTheme } from '@lib/state/utils';
@@ -49,11 +52,29 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const theme = useTheme();
 
   // Queries
+  const [cachedRoutes, setCachedRoutes] = useState<Route[] | null>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    fetchCachedRoutes().then((cached) => {
+      if (cached) setCachedRoutes(cached);
+      appLogger.i("Attempted cache: " + (!!cached))
+    });
+  }, []);
+
   const {
-    data: routes,
+    data: _routes,
     isLoading: isRoutesLoading,
     isError: routeError,
   } = useRoutes();
+
+  const routes = isRoutesLoading ? cachedRoutes : _routes ?? cachedRoutes;
+
+  useEffect(() => {
+    if (!routes) return;
+    saveRoutesToCache(routes);
+    setCachedRoutes(routes);
+  }, [routes]);
 
   const {
     data: favorites,
