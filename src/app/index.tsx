@@ -100,12 +100,9 @@ const Home = () => {
     presentSheet(Sheets.ROUTE_LIST);
   }, []);
 
-  //explicit retry (instead of requiring a relaunch)
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        retry: 3,
-        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
         refetchOnMount: false,
         refetchOnWindowFocus: false,
       },
