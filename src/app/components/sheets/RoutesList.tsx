@@ -52,26 +52,30 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
   // Queries
   const [cachedRoutes, setCachedRoutes] = useState<Route[] | null>(null);
+  const [doRefetch, setDoRefetch] = useState<boolean>(true);
 
   //attempts to grab cached routes
   useEffect(() => {
     fetchCachedRoutes().then((cached) => {
-      if (cached) setCachedRoutes(cached);
-      appLogger.i("Prefaced with cached routes: " + (!!cached))
+      if (cached[0]) setCachedRoutes(cached[0]);
+      setDoRefetch(!cached[1])
+      appLogger.i("Prefaced with cached routes: " + (!!cached[0]))
+      appLogger.i("Requested refetch: " + !cached[1]);
     });
   }, []);
+
 
   const {
     data: _routes,
     isLoading: isRoutesLoading,
     isError: routeError,
-  } = useRoutes();
+  } = useRoutes({ enabled: doRefetch });
 
   //changed logic to default to cachedRoutes
   const routes = isRoutesLoading ? cachedRoutes : _routes ?? cachedRoutes;
 
   useEffect(() => {
-    if (!routes) return;
+    if (!(routes && doRefetch)) return;
     saveRoutesToCache(routes);
     setCachedRoutes(routes);
   }, [routes]);
@@ -81,7 +85,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     isLoading: isFavoritesLoading,
     isError: isFavoritesError,
     refetch: refetchFavorites,
-  } = useFavorites();
+  } = useFavorites({ enabled: doRefetch });
 
   const { data: defaultGroup, refetch: refetchDefaultGroup } =
     useDefaultRouteGroup();

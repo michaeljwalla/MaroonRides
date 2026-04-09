@@ -33,10 +33,11 @@ export enum QueryKey {
 }
 
 // prevents having to reprocess data every time theme or favorites change
-export const useRoutes = () => {
+export const useRoutes = ({ enabled = true } = {}) => {
   const asRouteList = useASRoutes();
 
   const query = useDependencyQuery<Route[]>({
+    enabled: enabled,
     queryKey: [QueryKey.ROUTE_LIST],
     queryFn: async () => {
       queryLogger.i(
