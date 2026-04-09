@@ -7,7 +7,6 @@ import {
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { SegmentedControlEvent } from '@lib/utils/utils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
-import { useQueryClient } from '@tanstack/react-query';
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -53,12 +52,12 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
   // Queries
   const [cachedRoutes, setCachedRoutes] = useState<Route[] | null>(null);
-  const queryClient = useQueryClient();
 
+  //attempts to grab cached routes
   useEffect(() => {
     fetchCachedRoutes().then((cached) => {
       if (cached) setCachedRoutes(cached);
-      appLogger.i("Attempted cache: " + (!!cached))
+      appLogger.i("Prefaced with cached routes: " + (!!cached))
     });
   }, []);
 
@@ -68,6 +67,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     isError: routeError,
   } = useRoutes();
 
+  //changed logic to default to cachedRoutes
   const routes = isRoutesLoading ? cachedRoutes : _routes ?? cachedRoutes;
 
   useEffect(() => {
@@ -109,13 +109,19 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   }, [selectedRouteCategory, routes, favorites]);
 
   type RouteCategory = 'All Routes' | 'Gameday' | 'Favorites';
-  const routeCategories = useMemo<RouteCategory[]>(() => {
-    if (routes && routes.some((element) => element.name.includes('Gameday'))) {
-      return ['All Routes', 'Gameday', 'Favorites'];
-    }
+  const hasGameday = useMemo(
+    () => !!routes?.some((r) => r.name.includes('Gameday')),
+    [routes]
+  );
 
-    return ['All Routes', 'Favorites'];
-  }, [routes]);
+  //dependence on hasGameday instead of routes.
+  //prevents pill-button unnecessary reload when switching
+  //from cache to live
+  const routeCategories = useMemo<RouteCategory[]>(() => {
+    return hasGameday
+      ? ['All Routes', 'Gameday', 'Favorites']
+      : ['All Routes', 'Favorites'];
+  }, [hasGameday]);
 
   useEffect(() => {
     setSelectedRouteCategory(defaultGroup === 0 ? 'All Routes' : 'Favorites');
