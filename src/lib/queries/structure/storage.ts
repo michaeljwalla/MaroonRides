@@ -26,25 +26,46 @@ export enum StorageKey {
   ROUTE_CACHE = "route-cache",
 }
 
-const ROUTE_CACHE_TTL = 60 * 60 * 48 * 1000 // 48h expiry
+/**
+ * Returns two booleans, "hard" and "soft". true = expired
+ * 
+ * hard: every 48h\
+ * soft: start of every hour
+ */
+const cacheIsExpired = (t1: number, t2: number) => {
+  const HARD_ROUTE_EXPIRY_MS = 60 * 60 * 48 * 1000 // 48h expiry
+  const HOUR_MS = 60 * 60 * 1000;
+
+  return {
+    hard: (t2 - t1) > HARD_ROUTE_EXPIRY_MS,
+    soft: Math.floor(t1 / HOUR_MS) < Math.floor(t2 / HOUR_MS)
+  };
+}
 interface RouteCache {
   routes: Route[],
   timestamp: number
 }
 
-export async function fetchCachedRoutes(): Promise<Route[] | null> {
+/**
+ * [null, false] -> hard expiry / no data present.\
+ * [Route[], false] -> soft expiry\
+ * [Route[], true]  -> no refetch needed
+ */
+export async function fetchCachedRoutes(): Promise<[Route[] | null, boolean]> {
   let routes: Route[] | null = null;
   try {
     const data = await AsyncStorage.getItem(StorageKey.ROUTE_CACHE);
-    if (!data) return null;
+    if (!data) return [null, false];
     const cache: RouteCache = JSON.parse(data)
-    if (ROUTE_CACHE_TTL < (Date.now() - cache.timestamp)) return null;
-    routes = cache.routes;
+    const expired = cacheIsExpired(cache.timestamp, Date.now());
+    if (!expired.hard) {
+      return [cache.routes, !expired.soft]
+    }
   }
   catch {
     //TODO: flag some error here if substantial.
   }
-  return routes;
+  return [null, false]; //hard expire/error
 }
 export async function saveRoutesToCache(routes: Route[]): Promise<void> {
   try {
@@ -58,8 +79,8 @@ export async function saveRoutesToCache(routes: Route[]): Promise<void> {
   }
   return;
 }
-export const useFavorites = () => {
-  const routesQuery = useRoutes();
+export const useFavorites = ({ enabled = true } = {}) => {
+  const routesQuery = useRoutes({ enabled: enabled });
 
   const query = useDependencyQuery<Route[]>({
     queryKey: [StorageQueryKey.FAVORITES],
