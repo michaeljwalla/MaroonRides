@@ -114,9 +114,8 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     [routes]
   );
 
-  //dependence on hasGameday instead of routes.
-  //prevents pill-button unnecessary reload when switching
-  //from cache to live
+  //switch dependence to more-relevant field
+  //prevents pill buttons from regenerating when transitioning from cache to live
   const routeCategories = useMemo<RouteCategory[]>(() => {
     return hasGameday
       ? ['All Routes', 'Gameday', 'Favorites']
@@ -231,7 +230,8 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
           )}
 
         {/* Loading indicatior, only show if no error and either loading or there are no routes */}
-        {!routeError && (isRoutesLoading || !routes) && (
+        {/* prevents spinner appearing when transitioning from cache to live */}
+        {!routeError && (isRoutesLoading && !routes) && (
           <ActivityIndicator style={{ marginTop: 12 }} />
         )}
 
