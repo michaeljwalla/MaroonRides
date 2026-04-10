@@ -79,9 +79,10 @@ export async function saveRoutesToCache(routes: Route[]): Promise<void> {
   }
   return;
 }
-export const useFavorites = ({ enabled = true } = {}) => {
-  const routesQuery = useRoutes({ enabled: enabled });
-
+export const useFavorites = (routes: Route[] | null) => {
+  const routesQuery = useRoutes({ enabled: !routes })
+  routesQuery.data = routes ? routes : routesQuery.data;
+  //
   const query = useDependencyQuery<Route[]>({
     queryKey: [StorageQueryKey.FAVORITES],
     queryFn: async () => {

@@ -32,6 +32,21 @@ import BusIcon from '../ui/BusIcon';
 import IconPill from '../ui/IconPill';
 import SheetHeader from '../ui/SheetHeader';
 import BaseSheet, { SheetProps } from './BaseSheet';
+//
+const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
+const [showReloadButton, setShowReloadButton] = useState(true);
+const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
+
+const toggleUpdateSpinner = (show: boolean) => setShowUpdateSpinner(show);
+const toggleUpdateReload = (show: boolean) => setShowReloadButton(show);
+const updateLastUpdated = (ms: number) => setLastUpdatedMs(ms);
+
+const formatLastUpdated = (ms: number): string => {
+  const date = new Date(ms);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+//
+
 
 // Display routes list for all routes and favorite routes
 const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
@@ -85,7 +100,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     isLoading: isFavoritesLoading,
     isError: isFavoritesError,
     refetch: refetchFavorites,
-  } = useFavorites({ enabled: doRefetch });
+  } = useFavorites(routes);
 
   const { data: defaultGroup, refetch: refetchDefaultGroup } =
     useDefaultRouteGroup();
@@ -257,11 +272,32 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
           )
         )}
       </View>
-
+      {/* Status bar: floats above segmented control, anchored to its margins */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginBottom: 4,
+        paddingVertical: 4,
+        gap: 8,
+      }}>
+        {showUpdateSpinner && (
+          <ActivityIndicator size="small" color={theme.subtitle} style={{ transform: [{ scale: 0.7 }] }} />
+        )}
+        <Text style={{ color: theme.subtitle, flex: 1, fontSize: 14 }}>
+          {lastUpdatedMs ? `Last updated: ${formatLastUpdated(lastUpdatedMs)}` : 'Last updated: —'}
+        </Text>
+        {showReloadButton && (
+          <TouchableOpacity onPress={() => {/* reload handler */ }}>
+            <MaterialIcons name="refresh" size={14} color={theme.subtitle} />
+          </TouchableOpacity>
+        )}
+      </View>
       <BottomSheetFlatList
         contentContainerStyle={{
           paddingBottom: 35,
           paddingTop: 4,
+          marginTop: -6,
           marginLeft: 16,
         }}
         data={filteredRoutes}
