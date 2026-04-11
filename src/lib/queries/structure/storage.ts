@@ -51,21 +51,21 @@ interface RouteCache {
  * [Route[], false] -> soft expiry\
  * [Route[], true]  -> no refetch needed
  */
-export async function fetchCachedRoutes(): Promise<[Route[] | null, boolean]> {
+export async function fetchCachedRoutes(): Promise<[Route[] | null, boolean, number]> {
   let routes: Route[] | null = null;
   try {
     const data = await AsyncStorage.getItem(StorageKey.ROUTE_CACHE);
-    if (!data) return [null, false];
+    if (!data) return [null, false, -1];
     const cache: RouteCache = JSON.parse(data)
     const expired = cacheIsExpired(cache.timestamp, Date.now());
     if (!expired.hard) {
-      return [cache.routes, !expired.soft]
+      return [cache.routes, !expired.soft, cache.timestamp];
     }
   }
   catch {
     //TODO: flag some error here if substantial.
   }
-  return [null, false]; //hard expire/error
+  return [null, false, -1]; //hard expire/error
 }
 export async function saveRoutesToCache(routes: Route[]): Promise<void> {
   try {
@@ -74,6 +74,14 @@ export async function saveRoutesToCache(routes: Route[]): Promise<void> {
       StorageKey.ROUTE_CACHE,
       JSON.stringify(cache)
     );
+  } catch {
+    //TODO: flag some error here, if substantial.
+  }
+  return;
+}
+export async function clearRoutesCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(StorageKey.ROUTE_CACHE);
   } catch {
     //TODO: flag some error here, if substantial.
   }

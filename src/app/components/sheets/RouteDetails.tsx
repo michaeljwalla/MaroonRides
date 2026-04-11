@@ -54,11 +54,13 @@ const RouteDetails: React.FC<SheetProps> = ({ sheetRef }) => {
   }, [selectedDirection]);
 
   function onDismiss() {
-    // reorder to batch states before update draws
+    clearSelectedRoute();
+
     setSelectedStop(null);
     setPoppedUpStopCallout(null);
+
+    // reset direction selector
     setSelectedDirectionIndex(0);
-    clearSelectedRoute();
   }
 
   const setDirection = (evt: SegmentedControlEvent) => {

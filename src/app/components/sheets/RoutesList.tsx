@@ -18,6 +18,7 @@ import {
 
 import { useRoutes } from '@lib/queries/app';
 import {
+  clearRoutesCache,
   fetchCachedRoutes,
   saveRoutesToCache,
   useDefaultRouteGroup,
@@ -33,13 +34,6 @@ import IconPill from '../ui/IconPill';
 import SheetHeader from '../ui/SheetHeader';
 import BaseSheet, { SheetProps } from './BaseSheet';
 //
-const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
-const [showReloadButton, setShowReloadButton] = useState(true);
-const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
-
-const toggleUpdateSpinner = (show: boolean) => setShowUpdateSpinner(show);
-const toggleUpdateReload = (show: boolean) => setShowReloadButton(show);
-const updateLastUpdated = (ms: number) => setLastUpdatedMs(ms);
 
 const formatLastUpdated = (ms: number): string => {
   const date = new Date(ms);
@@ -65,17 +59,42 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const setDrawnRoutes = useAppStore((state) => state.setDrawnRoutes);
   const theme = useTheme();
 
+
+  const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
+  const [showReloadButton, setShowReloadButton] = useState(true);
+  const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
+
+  const toggleUpdateSpinner = (show: boolean) => setShowUpdateSpinner(show);
+  const toggleUpdateReload = (show: boolean) => setShowReloadButton(show);
+  const updateLastUpdated = (ms: number) => setLastUpdatedMs(ms);
+
   // Queries
   const [cachedRoutes, setCachedRoutes] = useState<Route[] | null>(null);
   const [doRefetch, setDoRefetch] = useState<boolean>(true);
+  const [doManualRefetch, setDoManualRefetch] = useState<boolean>(false);
+  const [lastSuccessfulCacheMS, setLastSuccessfulCacheMS] = useState<number | null>(null);
 
   //attempts to grab cached routes
   useEffect(() => {
+    if (doManualRefetch) return;
     fetchCachedRoutes().then((cached) => {
-      if (cached[0]) setCachedRoutes(cached[0]);
-      setDoRefetch(!cached[1])
-      appLogger.i("Prefaced with cached routes: " + (!!cached[0]))
-      appLogger.i("Requested refetch: " + !cached[1]);
+      if (cached[0]) {
+        setCachedRoutes(cached[0]);
+        setLastUpdatedMs(cached[2]);
+        setLastSuccessfulCacheMS(Date.now());
+      } else {
+        setLastUpdatedMs(null);
+        setLastSuccessfulCacheMS(null);
+      }
+
+      const willRefetch = !cached[1];
+      setDoRefetch(willRefetch)
+      appLogger.i(`Prefaced with cached routes: ${!!cached[0]}`)
+      appLogger.i(`Requested refetch: ${willRefetch ? (cached[0] ? "Soft" : "Hard") : "None"}`);
+
+      //disallow reload when already attempting
+      toggleUpdateReload(!willRefetch);
+      toggleUpdateSpinner(willRefetch);
     });
   }, []);
 
@@ -84,17 +103,38 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     data: _routes,
     isLoading: isRoutesLoading,
     isError: routeError,
+    refetch: reRequestRoutes
   } = useRoutes({ enabled: doRefetch });
 
   //changed logic to default to cachedRoutes
   const routes = isRoutesLoading ? cachedRoutes : _routes ?? cachedRoutes;
 
   useEffect(() => {
-    if (!(routes && doRefetch)) return;
-    saveRoutesToCache(routes);
-    setCachedRoutes(routes);
-  }, [routes]);
+    if ((routes === cachedRoutes) || isRoutesLoading || !(routes)) return;
+    if (doRefetch || doManualRefetch)
+      (async () => {
+        await clearRoutesCache();
+        await saveRoutesToCache(routes);
+        toggleUpdateSpinner(false);
 
+      })();
+    setDoManualRefetch(false);
+    //
+    setLastUpdatedMs(lastSuccessfulCacheMS);
+    setTimeout(() => { toggleUpdateReload(true) }, 5 * 1000);
+
+  }, [routes]);
+  useEffect(() => {
+    appLogger.i(routeError);
+  }, [routeError])
+  const onRequestedReload = async () => {
+    toggleUpdateSpinner(true);
+    toggleUpdateReload(false);
+    if (routes) routes.length = 0;
+    appLogger.i("User requests manual refetch.");
+    await reRequestRoutes();
+    setDoManualRefetch(true);
+  }
   const {
     data: favorites,
     isLoading: isFavoritesLoading,
@@ -115,9 +155,6 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   }, [routes, defaultGroup]);
 
   const selectRoute = (selectedRoute: Route) => {
-    appLogger.i(
-      `Route selected from list: ${selectedRoute.routeCode} - ${selectedRoute.name}`,
-    );
     setSelectedRoute(selectedRoute);
     setDrawnRoutes([selectedRoute]);
     presentSheet(Sheets.ROUTE_DETAILS);
@@ -165,7 +202,6 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   };
 
   function updateDrawnRoutes() {
-    appLogger.i(`updateDrawnRoutes: selectedRoute=${selectedRoute?.routeCode}, isFavoritesLoading=${isFavoritesLoading}, category=${selectedRouteCategory}, filteredRoutes=${filteredRoutes.length}`);
     if (!routes || selectedRoute || selectedAlert) return;
     if (isFavoritesLoading && selectedRouteCategory === 'Favorites') return; // wait for favorites
 
@@ -200,7 +236,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
       enableGestureClose={false}
       sheetKey={Sheets.ROUTE_LIST}
       onPresent={onPresent}
-      onSnap={() => { appLogger.i("SNAP"); updateDrawnRoutes(); }}
+      onSnap={updateDrawnRoutes}
     >
       <View>
         <SheetHeader
@@ -301,14 +337,14 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
         paddingVertical: 4,
         gap: 8,
       }}>
-        {showUpdateSpinner && (
-          <ActivityIndicator size="small" color={theme.subtitle} style={{ transform: [{ scale: 0.7 }] }} />
-        )}
         <Text style={{ color: theme.subtitle, flex: 1, fontSize: 14 }}>
           {lastUpdatedMs ? `Last updated: ${formatLastUpdated(lastUpdatedMs)}` : 'Last updated: —'}
         </Text>
-        {showReloadButton && (
-          <TouchableOpacity onPress={() => {/* reload handler */ }}>
+        {showUpdateSpinner && (
+          <ActivityIndicator size="small" color={theme.subtitle} style={{ transform: [{ scale: 0.7 }] }} />
+        )}
+        {showReloadButton && !showUpdateSpinner && (
+          <TouchableOpacity onPress={onRequestedReload}>
             <MaterialIcons name="refresh" size={14} color={theme.subtitle} />
           </TouchableOpacity>
         )}

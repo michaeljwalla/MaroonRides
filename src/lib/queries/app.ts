@@ -40,15 +40,21 @@ export const useRoutes = ({ enabled = true } = {}) => {
     enabled: enabled,
     queryKey: [QueryKey.ROUTE_LIST],
     queryFn: async () => {
-      queryLogger.i(
-        `Loaded ${asRouteList.data?.length} routes from Aggie Spirit`,
-      );
-      return asRouteList.data!;
+      if (!asRouteList.data) {
+        throw new Error("Data not ready yet.")
+      }
+      queryLogger.i(`Loaded ${asRouteList.data.length} routes from Aggie Spirit`);
+      return asRouteList.data;
     },
     dependents: [asRouteList],
   });
 
-  return query;
+  const refetchAll = async () => {
+    await asRouteList.refetch();
+    return query.refetch();
+  };
+
+  return { ...query, refetch: refetchAll };
 };
 
 export const useVehicles = (route: Route | null) => {
