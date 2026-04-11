@@ -105,6 +105,15 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const { data: defaultGroup, refetch: refetchDefaultGroup } =
     useDefaultRouteGroup();
 
+  useEffect(() => {
+    if (!routes || defaultGroup === undefined) return;
+    refetchFavorites().then(() => {
+      if (!selectedRoute && !selectedAlert) {
+        setDrawnRoutes(filteredRoutes.length > 0 ? filteredRoutes : routes);
+      }
+    });
+  }, [routes, defaultGroup]);
+
   const selectRoute = (selectedRoute: Route) => {
     appLogger.i(
       `Route selected from list: ${selectedRoute.routeCode} - ${selectedRoute.name}`,
@@ -156,9 +165,20 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   };
 
   function updateDrawnRoutes() {
+    appLogger.i(`updateDrawnRoutes: selectedRoute=${selectedRoute?.routeCode}, isFavoritesLoading=${isFavoritesLoading}, category=${selectedRouteCategory}, filteredRoutes=${filteredRoutes.length}`);
     if (!routes || selectedRoute || selectedAlert) return;
-    setDrawnRoutes(filteredRoutes);
+    if (isFavoritesLoading && selectedRouteCategory === 'Favorites') return; // wait for favorites
+
+    const routesToDraw =
+      selectedRouteCategory === 'Favorites'
+        ? (favorites ?? [])
+        : filteredRoutes.length > 0
+          ? filteredRoutes
+          : routes; //default
+
+    setDrawnRoutes(routesToDraw);
   }
+  // useEffect(updateDrawnRoutes, [filteredRoutes, selectedRoute, selectedAlert, isFavoritesLoading, selectedRouteCategory]);
 
   async function onPresent() {
     await refetchDefaultGroup();
@@ -180,7 +200,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
       enableGestureClose={false}
       sheetKey={Sheets.ROUTE_LIST}
       onPresent={onPresent}
-      onSnap={updateDrawnRoutes}
+      onSnap={() => { appLogger.i("SNAP"); updateDrawnRoutes(); }}
     >
       <View>
         <SheetHeader

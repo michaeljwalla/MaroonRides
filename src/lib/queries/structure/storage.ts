@@ -81,7 +81,13 @@ export async function saveRoutesToCache(routes: Route[]): Promise<void> {
 }
 export const useFavorites = (routes: Route[] | null) => {
   const routesQuery = useRoutes({ enabled: !routes })
-  routesQuery.data = routes ? routes : routesQuery.data;
+
+  //fake real fetch fields by setting to cached "routes"
+  if (routes) {
+    routesQuery.data = routes;
+    (routesQuery).isSuccess = true;
+  }
+
   //
   const query = useDependencyQuery<Route[]>({
     queryKey: [StorageQueryKey.FAVORITES],
