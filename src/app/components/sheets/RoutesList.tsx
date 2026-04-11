@@ -71,21 +71,25 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   // Queries
   const [cachedRoutes, setCachedRoutes] = useState<Route[] | null>(null);
   const [doRefetch, setDoRefetch] = useState<boolean>(true);
+  const [routeAPIError, setRouteAPIError] = useState<boolean>(false);
   const [doManualRefetch, setDoManualRefetch] = useState<boolean>(false);
   const [lastSuccessfulCacheMS, setLastSuccessfulCacheMS] = useState<number | null>(null);
 
+  const updateCachedRoutes = (data: [Route[] | null, boolean, number]) => {
+    if (data[0]) {
+      setCachedRoutes(data[0]);
+      setLastUpdatedMs(data[2]);
+      setLastSuccessfulCacheMS(Date.now());
+    } else {
+      setLastUpdatedMs(null);
+      setLastSuccessfulCacheMS(null);
+    }
+  }
   //attempts to grab cached routes
   useEffect(() => {
     if (doManualRefetch) return;
     fetchCachedRoutes().then((cached) => {
-      if (cached[0]) {
-        setCachedRoutes(cached[0]);
-        setLastUpdatedMs(cached[2]);
-        setLastSuccessfulCacheMS(Date.now());
-      } else {
-        setLastUpdatedMs(null);
-        setLastSuccessfulCacheMS(null);
-      }
+      updateCachedRoutes(cached);
 
       const willRefetch = !cached[1];
       setDoRefetch(willRefetch)
@@ -111,12 +115,16 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
   useEffect(() => {
     if ((routes === cachedRoutes) || isRoutesLoading || !(routes)) return;
+    setRouteAPIError(!routes.length);
+
     if (doRefetch || doManualRefetch)
       (async () => {
-        await clearRoutesCache();
-        await saveRoutesToCache(routes);
+        if (routes.length) {
+          await clearRoutesCache();
+          await saveRoutesToCache(routes);
+          updateCachedRoutes(await fetchCachedRoutes());
+        }
         toggleUpdateSpinner(false);
-
       })();
     setDoManualRefetch(false);
     //
@@ -124,13 +132,12 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     setTimeout(() => { toggleUpdateReload(true) }, 5 * 1000);
 
   }, [routes]);
-  useEffect(() => {
-    appLogger.i(routeError);
-  }, [routeError])
+
   const onRequestedReload = async () => {
     toggleUpdateSpinner(true);
     toggleUpdateReload(false);
     if (routes) routes.length = 0;
+    setDrawnRoutes([]);
     appLogger.i("User requests manual refetch.");
     await reRequestRoutes();
     setDoManualRefetch(true);
@@ -311,7 +318,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
         )}
 
         {/* Error */}
-        {routeError ? (
+        {routeError || routeAPIError ? (
           <View style={{ alignItems: 'center', marginTop: 16 }}>
             <Text style={{ color: theme.subtitle }}>
               Error loading routes. Please try again later.
