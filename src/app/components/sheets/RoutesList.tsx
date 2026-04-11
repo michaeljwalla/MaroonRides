@@ -129,7 +129,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     setDoManualRefetch(false);
     //
     setLastUpdatedMs(lastSuccessfulCacheMS);
-    setTimeout(() => { toggleUpdateReload(true) }, 5 * 1000);
+    setTimeout(() => { toggleUpdateReload(true) }, 1000 * (routeAPIError ? 5 : 60)); //5s retry if working
 
   }, [routes]);
 
@@ -299,6 +299,29 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
         <View
           style={{ height: 1, backgroundColor: theme.divider, marginTop: 8 }}
         />
+        {/* Status bar: floats above segmented control, anchored to its margins */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginHorizontal: 16,
+          marginBottom: 4,
+          paddingVertical: 4,
+          gap: 8,
+          height: 24
+        }}>
+          <Text style={{ color: theme.subtitle, flex: 1, fontSize: 14 }}>
+            {lastUpdatedMs ? `Last updated: ${formatLastUpdated(lastUpdatedMs)}` : 'Last updated: —'}
+          </Text>
+          {showUpdateSpinner && (
+            <ActivityIndicator size="small" color={theme.subtitle} style={{ transform: [{ scale: 0.7 }] }} />
+          )}
+          {showReloadButton && !showUpdateSpinner && (
+            <TouchableOpacity onPress={onRequestedReload}>
+              <MaterialIcons name="refresh" size={16} color={theme.subtitle} />
+            </TouchableOpacity>
+          )}
+        </View>
+
 
         {!isFavoritesLoading &&
           selectedRouteCategory === 'Favorites' &&
@@ -335,27 +358,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
           )
         )}
       </View>
-      {/* Status bar: floats above segmented control, anchored to its margins */}
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginHorizontal: 16,
-        marginBottom: 4,
-        paddingVertical: 4,
-        gap: 8,
-      }}>
-        <Text style={{ color: theme.subtitle, flex: 1, fontSize: 14 }}>
-          {lastUpdatedMs ? `Last updated: ${formatLastUpdated(lastUpdatedMs)}` : 'Last updated: —'}
-        </Text>
-        {showUpdateSpinner && (
-          <ActivityIndicator size="small" color={theme.subtitle} style={{ transform: [{ scale: 0.7 }] }} />
-        )}
-        {showReloadButton && !showUpdateSpinner && (
-          <TouchableOpacity onPress={onRequestedReload}>
-            <MaterialIcons name="refresh" size={14} color={theme.subtitle} />
-          </TouchableOpacity>
-        )}
-      </View>
+
       <BottomSheetFlatList
         contentContainerStyle={{
           paddingBottom: 35,
