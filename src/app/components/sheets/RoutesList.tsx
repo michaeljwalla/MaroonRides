@@ -16,6 +16,9 @@ import {
   View,
 } from 'react-native';
 
+import {
+  _pushSuccessVehicleCallback
+} from '@lib/queries/api/aggie_spirit';
 import { useRoutes } from '@lib/queries/app';
 import {
   clearRoutesCache,
@@ -85,9 +88,9 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
       setLastSuccessfulCacheMS(null);
     }
   }
+
   //attempts to grab cached routes
   useEffect(() => {
-    if (doManualRefetch) return;
     fetchCachedRoutes().then((cached) => {
       updateCachedRoutes(cached);
 
@@ -102,6 +105,11 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     });
   }, []);
 
+  //hook every vehicle query to update lastUpdatedMs (meh)
+  useEffect(() => {
+    const cb = () => setLastUpdatedMs(Date.now());
+    _pushSuccessVehicleCallback(cb); //goto defn here
+  }, []);
 
   const {
     data: _routes,

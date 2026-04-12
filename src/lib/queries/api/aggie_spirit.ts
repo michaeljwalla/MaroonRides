@@ -238,6 +238,12 @@ export const useStopScheduleAPI = (stopCode: string, date: Date) => {
   });
 };
 
+// using (botched) for timestamp updates
+const _successVehicleCallbacks: (() => void)[] = [];
+export const _pushSuccessVehicleCallback = (f: () => void) => {
+  _successVehicleCallbacks.push(f);
+};
+
 export const useVehiclesAPI = (routeKey: string) => {
   const authTokenQuery = useAuthTokenAPI();
 
@@ -256,6 +262,7 @@ export const useVehiclesAPI = (routeKey: string) => {
         return null;
       }
 
+      _successVehicleCallbacks.forEach((f) => f());
       return busesResponse[0];
     },
     enabled: routeKey !== '',
