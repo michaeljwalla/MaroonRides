@@ -64,7 +64,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
 
   const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
-  const [showReloadButton, setShowReloadButton] = useState(true);
+  const [showReloadButton, setShowReloadButton] = useState(false);
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
 
   const toggleUpdateSpinner = (show: boolean) => setShowUpdateSpinner(show);
@@ -100,14 +100,14 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
       appLogger.i(`Requested refetch: ${willRefetch ? (cached[0] ? "Soft" : "Hard") : "None"}`);
 
       //disallow reload when already attempting
-      toggleUpdateReload(!willRefetch);
+      // toggleUpdateReload(!willRefetch);
       toggleUpdateSpinner(willRefetch);
     });
   }, []);
 
   //hook every vehicle query to update lastUpdatedMs (meh)
   useEffect(() => {
-    const cb = () => setLastUpdatedMs(Date.now());
+    const cb = () => { setLastUpdatedMs(Date.now()); }
     _pushSuccessVehicleCallback(cb); //goto defn here
   }, []);
 
@@ -137,7 +137,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     setDoManualRefetch(false);
     //
     setLastUpdatedMs(lastSuccessfulCacheMS);
-    setTimeout(() => { toggleUpdateReload(true) }, 1000 * (routeAPIError ? 5 : 60)); //5s retry if working
+    if (routeAPIError) setTimeout(() => { toggleUpdateReload(true) }, 1000 * 5);
 
   }, [routes]);
 
