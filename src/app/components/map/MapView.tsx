@@ -162,7 +162,7 @@ const RouteMap: React.FC = () => {
 
             return (
               <Polyline
-                key={`${direction.id}`}
+                key={`${selectedRoute ? 'focused' : 'all'}-${drawnRoute.id}-${direction.id}`}
                 coordinates={direction.pathPoints}
                 strokeColor={tintColor}
                 strokeWidth={5}
