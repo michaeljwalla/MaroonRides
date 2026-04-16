@@ -66,7 +66,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const reloadDebounce = useRef(false);
   const manualReloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
-  const [showReloadButton, setShowReloadButton] = useState(true);
+  const [showReloadButton, setShowReloadButton] = useState(false);
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
 
   const toggleUpdateSpinner = (show: boolean) => setShowUpdateSpinner(show);

@@ -34,7 +34,7 @@ export enum StorageKey {
  */
 const cacheIsExpired = (t1: number, t2: number) => {
   const HARD_ROUTE_EXPIRY_MS = 60 * 60 * 24 * 3 * 1000 // n-day expiry (will fully flush cache)
-  const HOUR_MS = 60 * 60 * 1000;                      //"soft" expiry attempts to refetch at the start of the hour
+  const HOUR_MS = 1;//60 * 60 * 1000;                      //"soft" expiry attempts to refetch at the start of the hour
 
   return {
     hard: (t2 - t1) > HARD_ROUTE_EXPIRY_MS,

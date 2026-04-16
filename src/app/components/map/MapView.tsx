@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useVehicles } from '@lib/queries/app';
 import useAppStore from '@lib/state/app_state';
 import { useTheme } from '@lib/state/utils';
-import { Bus, Direction, Route } from '@lib/types';
+import { Direction, Route } from '@lib/types';
 import { defaultMapRegion } from '@lib/utils/geo';
 import { appLogger } from '@lib/utils/logger';
 import { processRoutePlanMapComponents } from '@lib/utils/route-planning';
@@ -43,8 +43,8 @@ const RouteMap: React.FC = () => {
     );
   }, [selectedRoutePlan, selectedRoutePlanPathPart]);
 
-  //const { data: buses } = useVehicles(selectedRoute);
-  const buses = [] as Bus[];
+  const { data: buses } = useVehicles(selectedRoute);
+  //const buses = [] as Bus[];
   function selectRoute(route: Route, direction: Direction) {
     if (selectedDirection?.id !== direction.id) setSelectedDirection(direction);
 
