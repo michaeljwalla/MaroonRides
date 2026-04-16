@@ -7,7 +7,7 @@ import {
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { SegmentedControlEvent } from '@lib/utils/utils';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -63,6 +63,8 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const theme = useTheme();
 
 
+  const reloadDebounce = useRef(false);
+  const manualReloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showUpdateSpinner, setShowUpdateSpinner] = useState(true);
   const [showReloadButton, setShowReloadButton] = useState(true);
   const [lastUpdatedMs, setLastUpdatedMs] = useState<number | null>(null);
@@ -77,6 +79,10 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   const [routeAPIError, setRouteAPIError] = useState<boolean>(false);
   const [doManualRefetch, setDoManualRefetch] = useState<boolean>(false);
   const [lastSuccessfulCacheMS, setLastSuccessfulCacheMS] = useState<number | null>(null);
+  const [useCachedRoutesOverride, setUseCachedRoutesOverride] = useState<number>(1);
+
+  const routesRef = useRef<Route[] | null>(null);
+  const cachedRoutesRef = useRef<Route[] | null>(null);
 
   const updateCachedRoutes = (data: [Route[] | null, boolean, number]) => {
     if (data[0]) {
@@ -91,6 +97,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
   //attempts to grab cached routes
   useEffect(() => {
+    if (!useCachedRoutesOverride) return;
     fetchCachedRoutes().then((cached) => {
       updateCachedRoutes(cached);
 
@@ -103,7 +110,8 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
       // toggleUpdateReload(!willRefetch);
       toggleUpdateSpinner(willRefetch);
     });
-  }, []);
+    setUseCachedRoutesOverride(0);
+  }, [useCachedRoutesOverride]);
 
   //hook every vehicle query to update lastUpdatedMs (meh)
   useEffect(() => {
@@ -119,7 +127,58 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
   } = useRoutes({ enabled: doRefetch });
 
   //changed logic to default to cachedRoutes
-  const routes = isRoutesLoading ? cachedRoutes : _routes ?? cachedRoutes;
+  const routes = useCachedRoutesOverride
+    ? cachedRoutes
+    : isRoutesLoading
+      ? cachedRoutes
+      : (_routes ?? cachedRoutes);
+
+  const clearManualReloadTimeout = () => {
+    if (manualReloadTimeoutRef.current) {
+      clearTimeout(manualReloadTimeoutRef.current);
+      manualReloadTimeoutRef.current = null;
+    }
+  };
+
+  const startManualReloadWatchdog = () => {
+    clearManualReloadTimeout();
+    manualReloadTimeoutRef.current = setTimeout(() => {
+      const hasLoadedRoutes = !!routesRef.current && routesRef.current.length > 0;
+      if (hasLoadedRoutes) return;
+
+      appLogger.w('Manual refetch timed out. Attempting to restore cached routes.');
+      setUseCachedRoutesOverride(useCachedRoutesOverride + 1);
+      setRouteAPIError(false);
+
+      setDoManualRefetch(false);
+      toggleUpdateSpinner(false);
+      toggleUpdateReload(true);
+      setDrawnRoutes(cachedRoutes ?? []);
+    }, 1000 * 10);
+  };
+
+  useEffect(() => {
+    routesRef.current = routes ?? null;
+  }, [routes]);
+
+  useEffect(() => {
+    cachedRoutesRef.current = cachedRoutes;
+  }, [cachedRoutes]);
+
+  useEffect(() => {
+    if (_routes && _routes.length > 0) {
+      setUseCachedRoutesOverride(0);
+      clearManualReloadTimeout();
+    }
+  }, [_routes]);
+
+  useEffect(() => {
+    if (!doManualRefetch) clearManualReloadTimeout();
+  }, [doManualRefetch]);
+
+  useEffect(() => {
+    return () => clearManualReloadTimeout();
+  }, []);
 
   useEffect(() => {
     if ((routes === cachedRoutes) || isRoutesLoading || !(routes)) return;
@@ -137,18 +196,27 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
     setDoManualRefetch(false);
     //
     setLastUpdatedMs(lastSuccessfulCacheMS);
-    if (routeAPIError) setTimeout(() => { toggleUpdateReload(true) }, 1000 * 5);
+    if (routeAPIError) {
+      reloadDebounce.current = false;
+      setTimeout(() => {
+        if (reloadDebounce.current) return; //if externally updated to false
+        reloadDebounce.current = true;
+        toggleUpdateReload(true)
+      }, 1000 * 5);
+    }
 
   }, [routes]);
 
   const onRequestedReload = async () => {
     toggleUpdateSpinner(true);
     toggleUpdateReload(false);
+    setUseCachedRoutesOverride(0);
+    setDoManualRefetch(true);
+    startManualReloadWatchdog();
     if (routes) routes.length = 0;
     setDrawnRoutes([]);
     appLogger.i("User requests manual refetch.");
     await reRequestRoutes();
-    setDoManualRefetch(true);
   }
   const {
     data: favorites,
@@ -162,6 +230,7 @@ const RoutesList: React.FC<SheetProps> = ({ sheetRef }) => {
 
   useEffect(() => {
     if (!routes || defaultGroup === undefined) return;
+    if (routes.length != 0) reloadDebounce.current = true; //intermediate empty routes exist, to prevent unnecessary callback
     refetchFavorites().then(() => {
       if (!selectedRoute && !selectedAlert) {
         setDrawnRoutes(filteredRoutes.length > 0 ? filteredRoutes : routes);

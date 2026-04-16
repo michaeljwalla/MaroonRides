@@ -40,11 +40,11 @@ export const useRoutes = ({ enabled = true } = {}) => {
     enabled: enabled,
     queryKey: [QueryKey.ROUTE_LIST],
     queryFn: async () => {
-      if (!asRouteList.data) {
-        throw new Error("Data not ready yet.")
-      }
-      queryLogger.i(`Loaded ${asRouteList.data.length} routes from Aggie Spirit`);
-      return asRouteList.data;
+      // if (!asRouteList.data) {
+      //   throw new Error("Data not ready yet.")
+      // }
+      queryLogger.i(`Loaded ${asRouteList.data?.length ?? "n/a"} routes from Aggie Spirit`);
+      return asRouteList.data ?? [];
     },
     dependents: [asRouteList],
   });
